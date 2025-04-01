@@ -4,7 +4,8 @@ const CANVAS_HEIGHT = 600;
 const GRAVITY = 0.5;
 const PLAYER_SPEED = 5;
 const JUMP_FORCE = -12;
-const GRID_SIZE = 100; // Size of each grid cell for spatial partitioning
+const GRID_SIZE = 100;
+const SCORE_INCREMENT = 10;
 
 // Game classes
 class Player {
@@ -90,42 +91,11 @@ class Enemy {
   }
 }
 
-// Spatial partitioning
-class SpatialGrid {
-  constructor() {
-    this.grid = new Map();
-  }
-
-  add(object) {
-    const key = `${object.gridX},${object.gridY}`;
-    if (!this.grid.has(key)) {
-      this.grid.set(key, []);
-    }
-    this.grid.get(key).push(object);
-  }
-
-  getNearby(object) {
-    const nearby = [];
-    for (let x = object.gridX - 1; x <= object.gridX + 1; x++) {
-      for (let y = object.gridY - 1; y <= object.gridY + 1; y++) {
-        const key = `${x},${y}`;
-        if (this.grid.has(key)) {
-          nearby.push(...this.grid.get(key));
-        }
-      }
-    }
-    return nearby;
-  }
-
-  clear() {
-    this.grid.clear();
-  }
-}
-
-// Game state
+// Spatial grid and game state
 let canvas, ctx;
 let player, platforms, enemies;
 let gameOver = false;
+let score = 0;
 const spatialGrid = new SpatialGrid();
 
 // Initialize game
@@ -167,7 +137,7 @@ function update() {
   platforms.forEach(platform => spatialGrid.add(platform));
   enemies.forEach(enemy => spatialGrid.add(enemy));
 
-  // Collision detection using spatial partitioning
+  // Collision detection
   const nearbyObjects = spatialGrid.getNearby(player);
   player.grounded = false;
   nearbyObjects.forEach(obj => {
@@ -181,9 +151,12 @@ function update() {
         // Player jumps on enemy
         enemies.splice(enemies.indexOf(obj), 1);
         player.velocityY = JUMP_FORCE;
+        score += SCORE_INCREMENT;
+        playSound('jumpSound');
       } else {
         // Player dies
         gameOver = true;
+        playSound('gameOverSound');
       }
     }
   });
@@ -191,6 +164,7 @@ function update() {
   // Check if player falls off screen
   if (player.y > CANVAS_HEIGHT) {
     gameOver = true;
+    playSound('gameOverSound');
   }
 }
 
@@ -207,12 +181,24 @@ function render() {
   // Draw enemies
   enemies.forEach(enemy => enemy.render(ctx));
 
+  // Draw score
+  ctx.fillStyle = 'black';
+  ctx.font = '24px Arial';
+  ctx.fillText(`Score: ${score}`, 20, 30);
+
   // Game over screen
   if (gameOver) {
     ctx.fillStyle = 'black';
     ctx.font = '48px Arial';
     ctx.fillText('Game Over', CANVAS_WIDTH/2 - 100, CANVAS_HEIGHT/2);
   }
+}
+
+// Play sound effect
+function playSound(id) {
+  const sound = document.getElementById(id);
+  sound.currentTime = 0;
+  sound.play();
 }
 
 // Check collision between two rectangles
@@ -238,6 +224,7 @@ document.addEventListener('keydown', (e) => {
       if (player.grounded) {
         player.velocityY = JUMP_FORCE;
         player.grounded = false;
+        playSound('jumpSound');
       }
       break;
   }

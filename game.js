@@ -4,6 +4,7 @@ const CANVAS_HEIGHT = 600;
 const GRAVITY = 0.5;
 const PLAYER_SPEED = 5;
 const JUMP_FORCE = -12;
+const GRID_SIZE = 100; // Size of each grid cell for spatial partitioning
 
 // Game classes
 class Player {
@@ -30,6 +31,14 @@ class Player {
     ctx.fillStyle = 'red';
     ctx.fillRect(this.x, this.y, this.width, this.height);
   }
+
+  get gridX() {
+    return Math.floor(this.x / GRID_SIZE);
+  }
+
+  get gridY() {
+    return Math.floor(this.y / GRID_SIZE);
+  }
 }
 
 class Platform {
@@ -43,6 +52,14 @@ class Platform {
   render(ctx) {
     ctx.fillStyle = 'green';
     ctx.fillRect(this.x, this.y, this.width, this.height);
+  }
+
+  get gridX() {
+    return Math.floor(this.x / GRID_SIZE);
+  }
+
+  get gridY() {
+    return Math.floor(this.y / GRID_SIZE);
   }
 }
 
@@ -63,12 +80,53 @@ class Enemy {
     ctx.fillStyle = 'brown';
     ctx.fillRect(this.x, this.y, this.width, this.height);
   }
+
+  get gridX() {
+    return Math.floor(this.x / GRID_SIZE);
+  }
+
+  get gridY() {
+    return Math.floor(this.y / GRID_SIZE);
+  }
+}
+
+// Spatial partitioning
+class SpatialGrid {
+  constructor() {
+    this.grid = new Map();
+  }
+
+  add(object) {
+    const key = `${object.gridX},${object.gridY}`;
+    if (!this.grid.has(key)) {
+      this.grid.set(key, []);
+    }
+    this.grid.get(key).push(object);
+  }
+
+  getNearby(object) {
+    const nearby = [];
+    for (let x = object.gridX - 1; x <= object.gridX + 1; x++) {
+      for (let y = object.gridY - 1; y <= object.gridY + 1; y++) {
+        const key = `${x},${y}`;
+        if (this.grid.has(key)) {
+          nearby.push(...this.grid.get(key));
+        }
+      }
+    }
+    return nearby;
+  }
+
+  clear() {
+    this.grid.clear();
+  }
 }
 
 // Game state
 let canvas, ctx;
 let player, platforms, enemies;
 let gameOver = false;
+const spatialGrid = new SpatialGrid();
 
 // Initialize game
 function init() {
@@ -104,23 +162,24 @@ function gameLoop() {
 function update() {
   player.update();
 
-  // Collision detection
+  // Update spatial grid
+  spatialGrid.clear();
+  platforms.forEach(platform => spatialGrid.add(platform));
+  enemies.forEach(enemy => spatialGrid.add(enemy));
+
+  // Collision detection using spatial partitioning
+  const nearbyObjects = spatialGrid.getNearby(player);
   player.grounded = false;
-  platforms.forEach(platform => {
-    if (collision(player, platform)) {
-      player.y = platform.y - player.height;
+  nearbyObjects.forEach(obj => {
+    if (obj instanceof Platform && collision(player, obj)) {
+      player.y = obj.y - player.height;
       player.velocityY = 0;
       player.grounded = true;
     }
-  });
-
-  // Enemy movement and collision
-  enemies.forEach(enemy => {
-    enemy.update();
-    if (collision(player, enemy)) {
-      if (player.y + player.height < enemy.y + 20) {
+    if (obj instanceof Enemy && collision(player, obj)) {
+      if (player.y + player.height < obj.y + 20) {
         // Player jumps on enemy
-        enemies.splice(enemies.indexOf(enemy), 1);
+        enemies.splice(enemies.indexOf(obj), 1);
         player.velocityY = JUMP_FORCE;
       } else {
         // Player dies

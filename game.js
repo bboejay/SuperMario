@@ -5,6 +5,66 @@ const GRAVITY = 0.5;
 const PLAYER_SPEED = 5;
 const JUMP_FORCE = -12;
 
+// Game classes
+class Player {
+  constructor(x, y) {
+    this.x = x;
+    this.y = y;
+    this.width = 40;
+    this.height = 60;
+    this.velocityX = 0;
+    this.velocityY = 0;
+    this.grounded = false;
+  }
+
+  update() {
+    this.x += this.velocityX;
+    this.y += this.velocityY;
+
+    if (!this.grounded) {
+      this.velocityY += GRAVITY;
+    }
+  }
+
+  render(ctx) {
+    ctx.fillStyle = 'red';
+    ctx.fillRect(this.x, this.y, this.width, this.height);
+  }
+}
+
+class Platform {
+  constructor(x, y, width, height) {
+    this.x = x;
+    this.y = y;
+    this.width = width;
+    this.height = height;
+  }
+
+  render(ctx) {
+    ctx.fillStyle = 'green';
+    ctx.fillRect(this.x, this.y, this.width, this.height);
+  }
+}
+
+class Enemy {
+  constructor(x, y, velocityX) {
+    this.x = x;
+    this.y = y;
+    this.width = 40;
+    this.height = 40;
+    this.velocityX = velocityX;
+  }
+
+  update() {
+    this.x += this.velocityX;
+  }
+
+  render(ctx) {
+    ctx.fillStyle = 'brown';
+    ctx.fillRect(this.x, this.y, this.width, this.height);
+  }
+}
+
 // Game state
 let canvas, ctx;
 let player, platforms, enemies;
@@ -17,28 +77,14 @@ function init() {
   canvas.height = CANVAS_HEIGHT;
   ctx = canvas.getContext('2d');
 
-  // Initialize player
-  player = {
-    x: 50,
-    y: CANVAS_HEIGHT - 100,
-    width: 40,
-    height: 60,
-    velocityX: 0,
-    velocityY: 0,
-    grounded: false
-  };
-
-  // Initialize platforms
+  // Initialize game objects
+  player = new Player(50, CANVAS_HEIGHT - 100);
   platforms = [
-    {x: 0, y: CANVAS_HEIGHT - 40, width: CANVAS_WIDTH, height: 40},
-    {x: 200, y: 400, width: 200, height: 20},
-    {x: 500, y: 300, width: 200, height: 20}
+    new Platform(0, CANVAS_HEIGHT - 40, CANVAS_WIDTH, 40),
+    new Platform(200, 400, 200, 20),
+    new Platform(500, 300, 200, 20)
   ];
-
-  // Initialize enemy
-  enemies = [
-    {x: 300, y: CANVAS_HEIGHT - 80, width: 40, height: 40, velocityX: 2}
-  ];
+  enemies = [new Enemy(300, CANVAS_HEIGHT - 80, 2)];
 
   // Start game loop
   gameLoop();
@@ -56,14 +102,7 @@ function gameLoop() {
 
 // Update game state
 function update() {
-  // Player movement
-  player.x += player.velocityX;
-  player.y += player.velocityY;
-
-  // Apply gravity
-  if (!player.grounded) {
-    player.velocityY += GRAVITY;
-  }
+  player.update();
 
   // Collision detection
   player.grounded = false;
@@ -77,7 +116,7 @@ function update() {
 
   // Enemy movement and collision
   enemies.forEach(enemy => {
-    enemy.x += enemy.velocityX;
+    enemy.update();
     if (collision(player, enemy)) {
       if (player.y + player.height < enemy.y + 20) {
         // Player jumps on enemy
@@ -101,20 +140,13 @@ function render() {
   ctx.clearRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
 
   // Draw platforms
-  ctx.fillStyle = 'green';
-  platforms.forEach(platform => {
-    ctx.fillRect(platform.x, platform.y, platform.width, platform.height);
-  });
+  platforms.forEach(platform => platform.render(ctx));
 
   // Draw player
-  ctx.fillStyle = 'red';
-  ctx.fillRect(player.x, player.y, player.width, player.height);
+  player.render(ctx);
 
   // Draw enemies
-  ctx.fillStyle = 'brown';
-  enemies.forEach(enemy => {
-    ctx.fillRect(enemy.x, enemy.y, enemy.width, enemy.height);
-  });
+  enemies.forEach(enemy => enemy.render(ctx));
 
   // Game over screen
   if (gameOver) {
